@@ -3,7 +3,6 @@ package nigelhenshaw.com.cameraintenttutorial;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
-import android.util.LruCache;
 import android.widget.ImageView;
 
 import java.io.File;
@@ -11,6 +10,7 @@ import java.lang.ref.WeakReference;
 
 /**
  * Created by nigelhenshaw on 6/07/2015.
+ * change
  */
 
 public class BitmapWorkerTask extends AsyncTask<File, Void, Bitmap> {
