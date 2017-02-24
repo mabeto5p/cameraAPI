@@ -170,8 +170,10 @@ public class CamaraIntentActivity extends Activity {
     }
 
     public static void setBitmapToMemoryCache(String key, Bitmap bitmap) {
+
+        if(bitmap != null){
         if(getBitmapFromMemoryCache(key) == null) {
             mMemoryCache.put(key, bitmap);
-        }
+        }}
     }
 }
