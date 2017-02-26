@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.net.Uri;
@@ -56,6 +57,7 @@ public class CamaraIntentActivity extends Activity {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
             setupCamera(width, height);
+            openCamera();
 
         }
 
@@ -74,7 +76,23 @@ public class CamaraIntentActivity extends Activity {
 
         }
     };
+    private CameraDevice mCameraDevice;
+    private CameraDevice.StateCallback mCameraDeviceStateCallback = new CameraDevice.StateCallback(){
+        @Override
+        public void onOpened(CameraDevice camera) {
 
+        }
+
+        @Override
+        public void onDisconnected(CameraDevice camera) {
+
+        }
+
+        @Override
+        public void onError(CameraDevice camera, int error) {
+
+        }
+    };
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -255,15 +273,23 @@ public class CamaraIntentActivity extends Activity {
                 }
             }
         }
-        if(collectorSizes.size() > 0){
-            return Collections.min(collectorSizes, new Comparator<Size>(){
+        if(collectorSizes.size() > 0) {
+            return Collections.min(collectorSizes, new Comparator<Size>() {
                 @Override
                 public int compare(Size lhs, Size rhs) {
-                    return Long.signum(lhs.getWidth()*lhs.getHeight() - rhs.getWidth() * rhs.getHeight());
+                    return Long.signum(lhs.getWidth() * lhs.getHeight() - rhs.getWidth() * rhs.getHeight());
                 }
             });
-        }
-        return mapSizes[0];
+
+            return mapSizes[0];
     }
 
+    private void openCamera(){
+        CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        try {
+            cameraManager.openCamera(mCameraId, mCameraDeviceStateCallback, null);
+        } catch (CameraAccessException e){
+            e.printStackTrace();
+        }
+    }
 }
