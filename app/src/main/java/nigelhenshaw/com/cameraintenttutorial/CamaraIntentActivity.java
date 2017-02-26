@@ -49,6 +49,8 @@ public class CamaraIntentActivity extends Activity {
     private File mGalleryFolder;
     private static LruCache<String, Bitmap> mMemoryCache;
     private RecyclerView mRecyclerView;
+    private Size mPreviewSize;
+    private String mCameraId;
     private TextureView mTextureView;
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -231,7 +233,9 @@ public class CamaraIntentActivity extends Activity {
                     continue;
                 }
                 StreamConfigurationMap map = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-
+                mPreviewSize =getPreferredPreviewSize(map.getOutputSizes(SurfaceTexture.class),width, height);
+                mCameraId = cameraId;
+                return;
             }
         } catch (CameraAccessException e) {
             e.printStackTrace();
