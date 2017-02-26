@@ -77,22 +77,31 @@ public class CamaraIntentActivity extends Activity {
         }
     };
     private CameraDevice mCameraDevice;
-    private CameraDevice.StateCallback mCameraDeviceStateCallback = new CameraDevice.StateCallback(){
+    private CameraDevice.StateCallback mCameraDeviceStateCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(CameraDevice camera) {
+            mCameraDevice = camera;
+            Toast.makeText(getApplicationContext(), "Camera Opened", Toast.LENGTH_SHORT).show();
+
 
         }
 
         @Override
         public void onDisconnected(CameraDevice camera) {
-
+            Toast.makeText(getApplicationContext(), "Camera Closed", Toast.LENGTH_SHORT);
+            camera.close();
+            mCameraDevice = null;
         }
 
         @Override
         public void onError(CameraDevice camera, int error) {
+            Toast.makeText(getApplicationContext(), "Camera Error", Toast.LENGTH_SHORT);
+            camera.close();
 
+            mCameraDevice = null;
         }
     };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -119,10 +128,11 @@ public class CamaraIntentActivity extends Activity {
         };
         mTextureView = (TextureView) findViewById(R.id.textureView);
     }
+
     @Override
-    public void onResume(){
+    public void onResume() {
         super.onResume();
-        if(mTextureView.isAvailable()){
+        if (mTextureView.isAvailable()) {
 
         } else {
             mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
@@ -157,7 +167,7 @@ public class CamaraIntentActivity extends Activity {
 
         File photoFile = null;
         try {
-           photoFile = createImageFile();
+            photoFile = createImageFile();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -167,8 +177,8 @@ public class CamaraIntentActivity extends Activity {
         startActivityForResult(callCameraApplicationIntent, ACTIVITY_START_CAMERA_APP);
     }
 
-    protected void onActivityResult (int requestCode, int resultCode, Intent data) {
-        if(requestCode == ACTIVITY_START_CAMERA_APP && resultCode == RESULT_OK) {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == ACTIVITY_START_CAMERA_APP && resultCode == RESULT_OK) {
             // Toast.makeText(this, "Picture taken successfully", Toast.LENGTH_SHORT).show();
             // Bundle extras = data.getExtras();
             // Bitmap photoCapturedBitmap = (Bitmap) extras.get("data");
@@ -185,7 +195,7 @@ public class CamaraIntentActivity extends Activity {
     private void createImageGallery() {
         File storageDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
         mGalleryFolder = new File(storageDirectory, GALLERY_LOCATION);
-        if(!mGalleryFolder.exists()) {
+        if (!mGalleryFolder.exists()) {
             mGalleryFolder.mkdirs();
         }
 
@@ -196,7 +206,7 @@ public class CamaraIntentActivity extends Activity {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String imageFileName = "IMAGE_" + timeStamp + "_";
 
-        File image = File.createTempFile(imageFileName,".jpg", mGalleryFolder);
+        File image = File.createTempFile(imageFileName, ".jpg", mGalleryFolder);
         mImageFileLocation = image.getAbsolutePath();
 
         return image;
@@ -213,7 +223,7 @@ public class CamaraIntentActivity extends Activity {
         int cameraImageWidth = bmOptions.outWidth;
         int cameraImageHeight = bmOptions.outHeight;
 
-        int scaleFactor = Math.min(cameraImageWidth/targetImageViewWidth, cameraImageHeight/targetImageViewHeight);
+        int scaleFactor = Math.min(cameraImageWidth / targetImageViewWidth, cameraImageHeight / targetImageViewHeight);
         bmOptions.inSampleSize = scaleFactor;
         bmOptions.inJustDecodeBounds = false;
 
@@ -238,20 +248,23 @@ public class CamaraIntentActivity extends Activity {
 
     public static void setBitmapToMemoryCache(String key, Bitmap bitmap) {
 
-        if(bitmap != null){
-        if(getBitmapFromMemoryCache(key) == null) {
-            mMemoryCache.put(key, bitmap);
-        }}}
-        private void setupCamera(int width, int height){
-            CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        if (bitmap != null) {
+            if (getBitmapFromMemoryCache(key) == null) {
+                mMemoryCache.put(key, bitmap);
+            }
+        }
+    }
+
+    private void setupCamera(int width, int height) {
+        CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
-            for(String cameraId: cameraManager.getCameraIdList()){
+            for (String cameraId : cameraManager.getCameraIdList()) {
                 CameraCharacteristics cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId);
-                if(cameraCharacteristics.get(cameraCharacteristics.LENS_FACING)==cameraCharacteristics.LENS_FACING_FRONT){
+                if (cameraCharacteristics.get(cameraCharacteristics.LENS_FACING) == cameraCharacteristics.LENS_FACING_FRONT) {
                     continue;
                 }
                 StreamConfigurationMap map = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-                mPreviewSize =getPreferredPreviewSize(map.getOutputSizes(SurfaceTexture.class),width, height);
+                mPreviewSize = getPreferredPreviewSize(map.getOutputSizes(SurfaceTexture.class), width, height);
                 mCameraId = cameraId;
                 return;
             }
@@ -260,35 +273,39 @@ public class CamaraIntentActivity extends Activity {
         }
 
     }
-    private Size getPreferredPreviewSize(Size[] mapSizes, int width, int height){
+
+    private Size getPreferredPreviewSize(Size[] mapSizes, int width, int height) {
         List<Size> collectorSizes = new ArrayList<>();
         for (Size option : mapSizes) {
-            if(width > height) {
-                if(option.getWidth()> width && option.getHeight() > height){
+            if (width > height) {
+                if (option.getWidth() > width && option.getHeight() > height) {
                     collectorSizes.add(option);
                 }
             } else {
-                if(option.getWidth()>height && option.getHeight()>width){
+                if (option.getWidth() > height && option.getHeight() > width) {
                     collectorSizes.add(option);
                 }
             }
         }
-        if(collectorSizes.size() > 0) {
+        if (collectorSizes.size() > 0) {
             return Collections.min(collectorSizes, new Comparator<Size>() {
                 @Override
                 public int compare(Size lhs, Size rhs) {
                     return Long.signum(lhs.getWidth() * lhs.getHeight() - rhs.getWidth() * rhs.getHeight());
                 }
             });
-
+        }
             return mapSizes[0];
-    }
+        }
 
-    private void openCamera(){
+
+
+
+    private void openCamera() {
         CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
             cameraManager.openCamera(mCameraId, mCameraDeviceStateCallback, null);
-        } catch (CameraAccessException e){
+        } catch (CameraAccessException e) {
             e.printStackTrace();
         }
     }
