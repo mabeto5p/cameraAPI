@@ -7,13 +7,17 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.provider.MediaStore;
 import android.renderscript.ScriptIntrinsicConvolve3x3;
 import android.support.v7.widget.GridLayoutManager;
@@ -23,6 +27,7 @@ import android.util.LruCache;
 import android.util.Size;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.ImageView;
@@ -30,6 +35,7 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,6 +50,9 @@ import static java.util.Collections.min;
 public class CamaraIntentActivity extends Activity {
 
     private static final int ACTIVITY_START_CAMERA_APP = 0;
+    private static final int STATE_PREVIEW = 0;
+    private static final int STATE_WAIT_LOCK = 1;
+    private int mState;
     private ImageView mPhotoCapturedImageView;
     private String mImageFileLocation = "";
     private String GALLERY_LOCATION = "image gallery";
@@ -81,8 +90,8 @@ public class CamaraIntentActivity extends Activity {
         @Override
         public void onOpened(CameraDevice camera) {
             mCameraDevice = camera;
-            Toast.makeText(getApplicationContext(), "Camera Opened", Toast.LENGTH_SHORT).show();
-
+            //Toast.makeText(getApplicationContext(), "Camera Opened", Toast.LENGTH_SHORT).show();
+            createCameraPreviewSession();
 
         }
 
@@ -101,6 +110,17 @@ public class CamaraIntentActivity extends Activity {
             mCameraDevice = null;
         }
     };
+    private CaptureRequest mPreviewCaptureRequest;
+    private CaptureRequest.Builder mPreviewCaptureRequestBuilder;
+    private  CameraCaptureSession mCameraCaptureSession;
+    private CameraCaptureSession.CaptureCallback mSessionCaptureCallback = new CameraCaptureSession.CaptureCallback() {
+        @Override
+        public void onCaptureStarted(CameraCaptureSession session, CaptureRequest request, long timestamp, long frameNumber) {
+            super.onCaptureStarted(session, request, timestamp, frameNumber);
+        }
+    };
+    private HandlerThread mBackgroundThread;
+    private Handler mBackgroundHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -132,13 +152,22 @@ public class CamaraIntentActivity extends Activity {
     @Override
     public void onResume() {
         super.onResume();
-        if (mTextureView.isAvailable()) {
+        openBackGroundThread();
 
+        if (mTextureView.isAvailable()) {
+            setupCamera(mTextureView.getWidth(), mTextureView.getHeight());
+            openCamera();
         } else {
             mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
         }
     }
+    @Override
+    public void onPause(){
+        closeCamera();
 
+        closeBackgroundThread();
+        super.onPause();
+    }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -304,8 +333,72 @@ public class CamaraIntentActivity extends Activity {
     private void openCamera() {
         CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
-            cameraManager.openCamera(mCameraId, mCameraDeviceStateCallback, null);
+            cameraManager.openCamera(mCameraId, mCameraDeviceStateCallback, mBackgroundHandler);
         } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+    private void closeCamera(){
+        if (mCameraCaptureSession != null){
+            mCameraCaptureSession.close();
+            mCameraCaptureSession = null;
+        }
+        if(mCameraDevice != null){
+            mCameraDevice.close();
+            mCameraDevice = null;
+        }
+    }
+    private void createCameraPreviewSession() {
+        try {
+            SurfaceTexture surfaceTexture = mTextureView.getSurfaceTexture();
+            surfaceTexture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
+            Surface previewSurface = new Surface(surfaceTexture);
+            mPreviewCaptureRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            mPreviewCaptureRequestBuilder.addTarget(previewSurface);
+            mCameraDevice.createCaptureSession(Arrays.asList(previewSurface),
+                    new CameraCaptureSession.StateCallback() {
+                        @Override
+                        public void onConfigured(CameraCaptureSession session) {
+                            if(mCameraDevice==null){
+                                return;
+                            }
+                            try{
+                                mPreviewCaptureRequest=mPreviewCaptureRequestBuilder.build();
+                                mCameraCaptureSession=session;
+                                mCameraCaptureSession.setRepeatingRequest(
+                                        mPreviewCaptureRequest,
+                                        mSessionCaptureCallback,
+                                        mBackgroundHandler);
+                            } catch (CameraAccessException e){
+                                e.printStackTrace();
+                            }
+                        }
+
+                        @Override
+                        public void onConfigureFailed(CameraCaptureSession session) {
+                            Toast.makeText(getApplicationContext(), "Camera session creation failed", Toast.LENGTH_SHORT).show();
+                        }
+                    },
+            null
+            );
+        } catch (CameraAccessException e){
+            e.printStackTrace();
+        }
+
+    }
+    private void openBackGroundThread(){
+        mBackgroundThread=new HandlerThread("(Camera2 Background thread");
+        mBackgroundThread.start();
+        mBackgroundHandler = new Handler ( mBackgroundThread.getLooper());
+
+    }
+    private void closeBackgroundThread(){
+        mBackgroundThread.quitSafely();
+        try {
+            mBackgroundThread.join();
+            mBackgroundThread=null;
+            mBackgroundHandler = null;
+        } catch ( InterruptedException e){
             e.printStackTrace();
         }
     }
